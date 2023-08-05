@@ -1,0 +1,8 @@
+
+> energytradingescrow@0.1.0 genprivkey
+> npx ts-node tests/utils/privateKey.ts
+
+Private key already present ...
+You can fund its address 'mjnrL3p2FpP1fKTRjawhT7p5u9Y8H4mac1' from the sCrypt faucet https://scrypt.io/faucet
+Running deployment script "deploy.ts"...
+current balance of address mjnrL3p2FpP1fKTRjawhT7p5u9Y8H4mac1 is 0 satoshis
