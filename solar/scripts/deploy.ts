@@ -1,7 +1,7 @@
 import { writeFileSync } from 'fs'
-import { Energy } from '../src/contracts/energy'
+import { EnergyTradingEscrow } from '../src/contracts/energy'
 import { privateKey } from './privateKey'
-import { bsv, TestWallet, DefaultProvider, sha256 } from 'scrypt-ts'
+import { bsv, TestWallet, DefaultProvider, sha256, hash160 } from 'scrypt-ts'
 
 function getScriptHash(scriptPubKeyHex: string) {
     const res = sha256(scriptPubKeyHex).match(/.{2}/g)
@@ -12,20 +12,28 @@ function getScriptHash(scriptPubKeyHex: string) {
 }
 
 async function main() {
-    await Energy.compile()
+    await EnergyTradingEscrow.compile()
 
     // Prepare signer. 
     // See https://scrypt.io/docs/how-to-deploy-and-call-a-contract/#prepare-a-signer-and-provider
     const signer = new TestWallet(privateKey, new DefaultProvider({
         network: bsv.Networks.testnet
     }))
+    
+    //const buyer = bsv.PrivateKey.fromRandom(bsv.Networks.testnet)
+    //const seller = bsv.PrivateKey.fromRandom(bsv.Networks.testnet)
+    const buyer = bsv.PrivateKey.fromWIF('cQvxAra22esyX41WSWAwE7u4P2LTHgrrDCTnFUfcvYDaeN1yEqfg')
+    const seller = bsv.PrivateKey.fromWIF('cRq3Apr6LFJ4JpXUhSVY4zQP2pvi3UGZVuCRgs946xhM3mAmqRAP')
+    const unitPrice = 5n
 
     // TODO: Adjust the amount of satoshis locked in the smart contract:
-    const amount = 100
+    const amount = 10
 
-    const instance = new Energy(
-        // TODO: Pass constructor parameter values.
-        0n
+    const instance = new EnergyTradingEscrow(
+        // Pass constructor parameter values.
+        hash160(buyer.publicKey.toHex()),
+        hash160(seller.publicKey.toHex()),
+        unitPrice
     )
 
     // Connect to a signer.

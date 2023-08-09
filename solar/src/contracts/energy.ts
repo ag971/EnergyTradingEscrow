@@ -1,31 +1,92 @@
 import {
+    assert,
+    hash160,
+    hash256,
     method,
     prop,
+    PubKey,
+    PubKeyHash,
+    Sig,
     SmartContract,
-    hash256,
-    assert,
-    ByteString,
-    SigHash
+    Utils,
 } from 'scrypt-ts'
 
-export class Energy extends SmartContract {
+export class EnergyTradingEscrow extends SmartContract {
+
+    @prop()
+    seller: PubKeyHash
+
+    @prop()
+    buyer: PubKeyHash
+
     @prop(true)
-    count: bigint
+    energy: bigint
 
-    constructor(count: bigint) {
-        super(count)
-        this.count = count
+    @prop()
+    unitPrice: bigint
+
+    constructor(
+        seller: PubKeyHash,
+        buyer: PubKeyHash,
+        unitPrice: bigint
+    ) {
+        super(...arguments)
+        this.seller = seller
+        this.buyer = buyer
+        this.energy = 0n
+        this.unitPrice = unitPrice
+    }
+    
+    @method()
+    public buyEnergy(
+       buyerPubKey: PubKey,
+       buyerSig: Sig,
+    ) {
+        assert(hash160(buyerPubKey) == this.buyer)
+        assert(this.checkSig(buyerSig, buyerPubKey))
+
+        let outputs = Utils.buildPublicKeyHashOutput(this.seller, this.energy * this.unitPrice)
+        if (this.changeAmount > 0n) {
+            outputs += this.buildChangeOutput()
+        }
+        assert(hash256(outputs) == this.ctx.hashOutputs)
     }
 
-    @method(SigHash.SINGLE)
-    public increment() {
-        this.count++
+    @method()
+    public depositEnergy(
+       sellerSig: Sig,
+       sellerPubKey: PubKey,
+       energy: bigint
+    ) {
+        assert(hash160(sellerPubKey) == this.seller)
+        assert(this.checkSig(sellerSig, sellerPubKey))
+        
+        this.energy += energy
 
-        // make sure balance in the contract does not change
-        const amount: bigint = this.ctx.utxo.value
-        // output containing the latest state
-        const output: ByteString = this.buildStateOutput(amount)
-        // verify current tx has this single output
-        assert(this.ctx.hashOutputs === hash256(output), 'hashOutputs mismatch')
+        let outputs = this.buildStateOutput(this.ctx.utxo.value)
+        if (this.changeAmount > 0n) {
+            outputs += this.buildChangeOutput()            
+        }
+        assert(hash256(outputs) == this.ctx.hashOutputs)
     }
+
+    @method()
+    public refund(buyerPubKey: PubKey, buyerSig: Sig, energy: bigint) {
+        assert(hash160(buyerPubKey) == this.buyer)
+        assert(this.checkSig(buyerSig, buyerPubKey))
+
+        assert(this.energy >= energy, "Insufficient energy balance to refund")
+
+        this.energy -= energy
+
+        let outputs = Utils.buildPublicKeyHashOutput(
+            this.buyer,
+            energy * this.unitPrice
+        )
+        if (this.changeAmount > 0n) {
+            outputs += this.buildChangeOutput()
+        }
+        assert(hash256(outputs) == this.ctx.hashOutputs)
+    }
+
 }
